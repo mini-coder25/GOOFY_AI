@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Goofy Voice Test - No Network Needed</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .button { padding: 15px 30px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .voice-btn { background: #4CAF50; color: white; }
+        .text-input { width: 300px; padding: 10px; font-size: 16px; margin: 10px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; background: #f0f0f0; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .commands { background: #e2e3e5; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .test-content { height: 1000px; background: linear-gradient(to bottom, #f0f0f0, #e0e0e0); padding: 20px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>🎤 Goofy Voice Commands Test</h1>
+    <p><strong>No API keys needed!</strong> This tests voice commands that work locally.</p>
+    
+    <div class="status" id="status">Ready to test voice commands</div>
+    
+    <button class="button voice-btn" onclick="startVoiceTest()">🎤 Start Voice Recognition</button>
+    <button class="button" onclick="stopVoiceTest()">🛑 Stop</button>
+    
+    <div>
+        <h3>Or Type Commands Manually:</h3>
+        <input type="text" class="text-input" id="textCommand" placeholder="Type: scroll down, scroll up, etc." onkeypress="if(event.key==='Enter') executeTextCommand()">
+        <button class="button" onclick="executeTextCommand()">Execute</button>
+    </div>
+    
+    <div class="commands">
+        <h3>📋 Available Commands:</h3>
+        <ul>
+            <li><strong>"scroll down"</strong> - Scroll page down</li>
+            <li><strong>"scroll up"</strong> - Scroll page up</li>
+            <li><strong>"scroll to top"</strong> - Go to top</li>
+            <li><strong>"scroll to bottom"</strong> - Go to bottom</li>
+            <li><strong>"new tab"</strong> - Open new tab</li>
+            <li><strong>"refresh page"</strong> - Reload page</li>
+        </ul>
+    </div>
+    
+    <div class="test-content">
+        <h2>📜 Test Content for Scrolling</h2>
+        <p>This is test content. Try the voice commands above to scroll this page.</p>
+        <p>Say "scroll down" or "scroll up" to test the commands.</p>
+        <p>If voice doesn't work due to network errors, use the text input above.</p>
+        
+        <div style="margin: 50px 0;">
+            <h3>More content...</h3>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        </div>
+        
+        <div style="margin: 50px 0;">
+            <h3>Even more content...</h3>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        </div>
+        
+        <div style="margin: 50px 0;">
+            <h3>Bottom section</h3>
+            <p>This is near the bottom. Try "scroll to top" to go back up!</p>
+        </div>
+    </div>
+
+    <script>
+        let recognition = null;
+        let isListening = false;
+        
+        // Command handlers (no network needed)
+        const commands = {
+            'scroll down': () => window.scrollBy(0, 300),
+            'scroll up': () => window.scrollBy(0, -300),
+            'scroll to top': () => window.scrollTo(0, 0),
+            'scroll to bottom': () => window.scrollTo(0, document.body.scrollHeight),
+            'go down': () => window.scrollBy(0, 300),
+            'go up': () => window.scrollBy(0, -300),
+            'new tab': () => window.open('', '_blank'),
+            'refresh page': () => window.location.reload(),
+            'reload': () => window.location.reload()
+        };
+        
+        function updateStatus(message, type = '') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            console.log('Status:', message);
+        }
+        
+        function executeCommand(command) {
+            const cleanCommand = command.toLowerCase().trim();
+            console.log('Executing command:', cleanCommand);
+            
+            // Find matching command
+            let matchedCommand = null;
+            
+            // Direct match
+            if (commands[cleanCommand]) {
+                matchedCommand = cleanCommand;
+            } else {
+                // Fuzzy match
+                for (const cmd of Object.keys(commands)) {
+                    if (cleanCommand.includes(cmd) || cmd.includes(cleanCommand)) {
+                        matchedCommand = cmd;
+                        break;
+                    }
+                }
+            }
+            
+            if (matchedCommand) {
+                try {
+                    commands[matchedCommand]();
+                    updateStatus(`✅ Executed: ${cleanCommand}`, 'success');
+                } catch (error) {
+                    updateStatus(`❌ Failed to execute: ${cleanCommand}`, 'error');
+                    console.error('Command error:', error);
+                }
+            } else {
+                updateStatus(`❓ Unknown command: ${cleanCommand}. Try "scroll down"`, 'error');
+            }
+        }
+        
+        function startVoiceTest() {
+            if (!('webkitSpeechRecognition' in window)) {
+                updateStatus('❌ Speech recognition not supported in this browser', 'error');
+                return;
+            }
+            
+            if (isListening) {
+                updateStatus('Already listening...', 'error');
+                return;
+            }
+            
+            try {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = () => {
+                    isListening = true;
+                    updateStatus('🎤 Listening... Say a command!', 'success');
+                };
+                
+                recognition.onresult = (event) => {
+                    const command = event.results[0][0].transcript;
+                    updateStatus(`🎯 Heard: "${command}"`, 'success');
+                    executeCommand(command);
+                };
+                
+                recognition.onerror = (event) => {
+                    isListening = false;
+                    if (event.error === 'network') {
+                        updateStatus('🌐 Network error (normal) - Use text input instead', 'error');
+                    } else {
+                        updateStatus(`❌ Voice error: ${event.error}`, 'error');
+                    }
+                };
+                
+                recognition.onend = () => {
+                    isListening = false;
+                    updateStatus('🎤 Voice recognition ended. Click button to try again.', '');
+                };
+                
+                recognition.start();
+                
+            } catch (error) {
+                updateStatus(`❌ Failed to start: ${error.message}`, 'error');
+                console.error('Recognition error:', error);
+            }
+        }
+        
+        function stopVoiceTest() {
+            if (recognition && isListening) {
+                recognition.stop();
+                isListening = false;
+                updateStatus('🛑 Voice recognition stopped', '');
+            }
+        }
+        
+        function executeTextCommand() {
+            const input = document.getElementById('textCommand');
+            const command = input.value.trim();
+            if (command) {
+                executeCommand(command);
+                input.value = '';
+            }
+        }
+        
+        // Test speech support on load
+        window.onload = () => {
+            if ('webkitSpeechRecognition' in window) {
+                updateStatus('✅ Speech recognition supported - Click button to test', 'success');
+            } else {
+                updateStatus('❌ Speech recognition not supported - Use text input', 'error');
+            }
+        };
+    </script>
+</body>
+</html>
