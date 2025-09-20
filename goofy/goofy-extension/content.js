@@ -687,6 +687,74 @@ class GoofyContentScript {
         }
     }
     
+    showTextInput() {
+        // Create text input for manual commands when voice fails
+        let textInputContainer = document.getElementById('goofy-text-input-container');
+        if (!textInputContainer) {
+            textInputContainer = document.createElement('div');
+            textInputContainer.id = 'goofy-text-input-container';
+            textInputContainer.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background: white;
+                border: 2px solid #4CAF50;
+                border-radius: 10px;
+                padding: 15px;
+                z-index: 10001;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                font-family: Arial, sans-serif;
+                max-width: 350px;
+            `;
+            
+            textInputContainer.innerHTML = `
+                <div style="margin-bottom: 10px; font-weight: bold; color: #333;">
+                    🎤➡️📝 Voice Commands (Type Here):
+                </div>
+                <div style="margin-bottom: 10px; font-size: 12px; color: #666;">
+                    Network error detected - Use text instead
+                </div>
+                <input type="text" id="goofy-manual-command" placeholder="Type: scroll down, new tab, etc." 
+                       style="width: 250px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px;">
+                <div>
+                    <button id="goofy-execute-command" style="padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;">Execute</button>
+                    <button id="goofy-close-text-input" style="padding: 8px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: #666;">
+                    Try: scroll down, scroll up, new tab, close tab
+                </div>
+            `;
+            
+            document.body.appendChild(textInputContainer);
+            
+            // Add event listeners
+            const textInput = document.getElementById('goofy-manual-command');
+            const executeBtn = document.getElementById('goofy-execute-command');
+            const closeBtn = document.getElementById('goofy-close-text-input');
+            
+            const executeCommand = () => {
+                const command = textInput.value.trim();
+                if (command) {
+                    console.log('Executing manual command:', command);
+                    this.processVoiceCommand(command);
+                    textInput.value = '';
+                }
+            };
+            
+            executeBtn.addEventListener('click', executeCommand);
+            textInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') executeCommand();
+            });
+            
+            closeBtn.addEventListener('click', () => {
+                textInputContainer.remove();
+            });
+            
+            // Focus the input
+            textInput.focus();
+        }
+    }
+    
     setupBasicSpeechRecognition() {
         console.log('Setting up basic speech recognition fallback...');
         
@@ -730,6 +798,10 @@ class GoofyContentScript {
                         case 'network':
                             this.speak('Network error. Voice recognition is temporarily unavailable. Please use the text input.');
                             this.highlightFallbackOptions();
+                            // Force show text input for network errors
+                            setTimeout(() => {
+                                this.showTextInput();
+                            }, 1000);
                             break;
                         case 'audio-capture':
                             this.speak('No microphone found. Please check your microphone connection.');
