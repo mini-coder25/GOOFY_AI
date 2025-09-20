@@ -83,10 +83,19 @@ class GoofyContentScript {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             this.speechRecognition = new SpeechRecognition();
             
+            // Configure for offline/local recognition
             this.speechRecognition.continuous = false;
             this.speechRecognition.interimResults = false;
             this.speechRecognition.lang = 'en-US';
             this.speechRecognition.maxAlternatives = 1;
+            
+            // Try to use local recognition if available
+            if ('webkitSpeechGrammarList' in window) {
+                const speechRecognitionList = new webkitSpeechGrammarList();
+                const grammar = '#JSGF V1.0; grammar commands; public <command> = scroll down | scroll up | scroll top | scroll bottom | click | search | new tab | close tab ;';
+                speechRecognitionList.addFromString(grammar, 1);
+                this.speechRecognition.grammars = speechRecognitionList;
+            }
             
             this.speechRecognition.onstart = () => {
                 console.log('Speech recognition started');
@@ -110,13 +119,21 @@ class GoofyContentScript {
                         this.speak('Please allow microphone access to use voice commands.');
                         break;
                     case 'no-speech':
-                        this.speak('No speech detected. Please try again.');
+                        this.speak('No speech detected. Please try speaking more clearly.');
                         break;
                     case 'network':
-                        this.speak('Network error. Please check your connection.');
+                        // Fallback for network errors - try again or use manual commands
+                        console.log('Network error - speech recognition may not be available online');
+                        this.speak('Network error detected. You can use the quick command buttons instead.');
+                        break;
+                    case 'audio-capture':
+                        this.speak('No microphone found. Please check your microphone connection.');
+                        break;
+                    case 'service-not-allowed':
+                        this.speak('Speech service not allowed. Please check browser settings.');
                         break;
                     default:
-                        this.speak('Speech recognition error. Please try again.');
+                        this.speak('Speech recognition error. Please try the quick command buttons.');
                 }
             };
             
@@ -135,6 +152,7 @@ class GoofyContentScript {
             console.log('Speech recognition setup complete');
         } else {
             console.error('Speech recognition not supported in this browser');
+            this.speak('Speech recognition is not supported in this browser. Please use the quick command buttons.');
         }
     }
 

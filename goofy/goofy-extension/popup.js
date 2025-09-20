@@ -29,6 +29,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         🎤 Start Listening
                     </button>
                     
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" id="manual-command" placeholder="Type command manually..." style="width: calc(100% - 80px); padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px;">
+                        <button id="execute-manual" style="width: 70px; padding: 8px; border: none; border-radius: 6px; background: #4CAF50; color: white; font-size: 12px; cursor: pointer; margin-left: 4px;">Execute</button>
+                    </div>
+                    
                     <div style="font-size: 12px; color: #6b7280; margin-bottom: 16px;">
                         <strong>Quick Commands:</strong>
                     </div>
@@ -121,6 +126,32 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Manual command input
+    const manualCommandInput = document.getElementById('manual-command');
+    const executeManualBtn = document.getElementById('execute-manual');
+    
+    if (executeManualBtn) {
+        executeManualBtn.addEventListener('click', async function() {
+            const command = manualCommandInput.value.trim();
+            if (command) {
+                await executeCommand(command);
+                manualCommandInput.value = '';
+            }
+        });
+    }
+    
+    if (manualCommandInput) {
+        manualCommandInput.addEventListener('keypress', async function(e) {
+            if (e.key === 'Enter') {
+                const command = this.value.trim();
+                if (command) {
+                    await executeCommand(command);
+                    this.value = '';
+                }
+            }
+        });
+    }
+    
     function setActiveState(active) {
         isActive = active;
         toggleBtn.textContent = active ? 'Deactivate Goofy' : 'Activate Goofy';
@@ -184,7 +215,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateStatusIndicator('No speech detected');
                     break;
                 case 'network':
-                    updateStatusIndicator('Network error');
+                    updateStatusIndicator('Network error - Use buttons below');
+                    console.log('Speech recognition network error - this is common and normal');
+                    break;
+                case 'audio-capture':
+                    updateStatusIndicator('No microphone found');
+                    break;
+                case 'service-not-allowed':
+                    updateStatusIndicator('Speech service not allowed');
                     break;
                 default:
                     updateStatusIndicator('Voice Error: ' + event.error);
