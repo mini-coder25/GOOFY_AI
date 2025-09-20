@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goofy Voice Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .search-input {
+            background: white;
+            border: 2px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>Goofy Voice Assistant Test Page</h1>
+    
+    <div class="test-section">
+        <h2>🎤 Voice Commands Test</h2>
+        <p>Use the following voice commands to test Goofy:</p>
+        <ul>
+            <li><strong>"scroll down"</strong> - Scroll the page down</li>
+            <li><strong>"scroll up"</strong> - Scroll the page up</li>
+            <li><strong>"scroll to top"</strong> - Go to top of page</li>
+            <li><strong>"scroll to bottom"</strong> - Go to bottom of page</li>
+            <li><strong>"click search button"</strong> - Click the search button below</li>
+            <li><strong>"search for hello world"</strong> - Fill the search box</li>
+            <li><strong>"click green button"</strong> - Click any green button</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Search Test</h2>
+        <input type="search" class="search-input" placeholder="Search here..." name="search">
+        <button onclick="alert('Search clicked!')">Search Button</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Form Test</h2>
+        <input type="text" name="username" placeholder="Username">
+        <input type="email" name="email" placeholder="Email">
+        <textarea name="message" placeholder="Message"></textarea>
+        <button onclick="alert('Form submitted!')">Submit</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Click Test</h2>
+        <button onclick="alert('Green button clicked!')" style="background: #4CAF50;">Green Button</button>
+        <button onclick="alert('Blue button clicked!')" style="background: #2196F3;">Blue Button</button>
+        <button onclick="alert('Red button clicked!')" style="background: #f44336;">Red Button</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📏 Scroll Test Content</h2>
+        <p>This is some content to test scrolling. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        
+        <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+        
+        <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+        
+        <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+        
+        <p>Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</p>
+        
+        <p>Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur.</p>
+    </div>
+
+    <script>
+        // Add some JavaScript for testing
+        console.log('Goofy test page loaded');
+        
+        // Test speech synthesis
+        function testSpeech() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('Hello! This is a speech test.');
+                speechSynthesis.speak(utterance);
+            } else {
+                console.log('Speech synthesis not supported');
+            }
+        }
+        
+        // Test speech recognition
+        function testVoiceRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                console.log('Speech recognition is available');
+            } else {
+                console.log('Speech recognition not supported');
+            }
+        }
+        
+        testVoiceRecognition();
+    </script>
+</body>
+</html>

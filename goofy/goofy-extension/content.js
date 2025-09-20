@@ -77,15 +77,25 @@ class GoofyContentScript {
     }
 
     setupSpeechRecognition() {
+        console.log('Setting up speech recognition...');
+        
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             this.speechRecognition = new SpeechRecognition();
             
-            this.speechRecognition.continuous = true;
-            this.speechRecognition.interimResults = true;
+            this.speechRecognition.continuous = false;
+            this.speechRecognition.interimResults = false;
             this.speechRecognition.lang = 'en-US';
+            this.speechRecognition.maxAlternatives = 1;
+            
+            this.speechRecognition.onstart = () => {
+                console.log('Speech recognition started');
+                this.isListening = true;
+                this.updateAvatar('listening');
+            };
             
             this.speechRecognition.onresult = (event) => {
+                console.log('Speech recognition result:', event);
                 this.onSpeechResult(event);
             };
             
@@ -93,12 +103,38 @@ class GoofyContentScript {
                 console.error('Speech recognition error:', event.error);
                 this.isListening = false;
                 this.updateAvatar('idle');
+                
+                // Handle specific errors
+                switch(event.error) {
+                    case 'not-allowed':
+                        this.speak('Please allow microphone access to use voice commands.');
+                        break;
+                    case 'no-speech':
+                        this.speak('No speech detected. Please try again.');
+                        break;
+                    case 'network':
+                        this.speak('Network error. Please check your connection.');
+                        break;
+                    default:
+                        this.speak('Speech recognition error. Please try again.');
+                }
             };
             
             this.speechRecognition.onend = () => {
+                console.log('Speech recognition ended');
                 this.isListening = false;
                 this.updateAvatar('idle');
+                
+                // Update button text
+                const listenBtn = document.getElementById('goofy-listen-btn');
+                if (listenBtn) {
+                    listenBtn.textContent = '🎤 Listen';
+                }
             };
+            
+            console.log('Speech recognition setup complete');
+        } else {
+            console.error('Speech recognition not supported in this browser');
         }
     }
 
@@ -350,19 +386,38 @@ class GoofyContentScript {
     }
 
     startListening() {
+        console.log('Attempting to start listening...');
+        
         if (!this.speechRecognition) {
+            console.error('Speech recognition not available');
             this.speak("Sorry, speech recognition is not supported in this browser.");
             return;
         }
         
-        this.isListening = true;
-        this.updateAvatar('listening');
-        this.speechRecognition.start();
+        if (this.isListening) {
+            console.log('Already listening, stopping first...');
+            this.stopListening();
+            return;
+        }
         
-        // Update button text
-        const listenBtn = document.getElementById('goofy-listen-btn');
-        if (listenBtn) {
-            listenBtn.textContent = '🛑 Stop';
+        try {
+            console.log('Starting speech recognition...');
+            this.isListening = true;
+            this.updateAvatar('listening');
+            this.speechRecognition.start();
+            
+            // Update button text
+            const listenBtn = document.getElementById('goofy-listen-btn');
+            if (listenBtn) {
+                listenBtn.textContent = '🛑 Stop';
+            }
+            
+            console.log('Speech recognition started successfully');
+        } catch (error) {
+            console.error('Failed to start speech recognition:', error);
+            this.isListening = false;
+            this.updateAvatar('idle');
+            this.speak('Failed to start voice recognition. Please try again.');
         }
     }
 
@@ -382,40 +437,56 @@ class GoofyContentScript {
     }
 
     onSpeechResult(event) {
+        console.log('Speech result event:', event);
         let finalTranscript = '';
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
+            const result = event.results[i];
+            console.log('Result', i, ':', result[0].transcript, 'Final:', result.isFinal);
+            
+            if (result.isFinal) {
+                finalTranscript += result[0].transcript;
             }
         }
         
-        if (finalTranscript) {
+        if (finalTranscript.trim()) {
+            console.log('Final transcript:', finalTranscript.trim());
             this.processVoiceCommand(finalTranscript.trim());
+        } else {
+            console.log('No final transcript detected');
         }
     }
 
     async processVoiceCommand(command) {
-        console.log('Processing command:', command);
+        console.log('Processing voice command:', command);
         this.updateAvatar('thinking');
         this.stopListening();
         
         try {
-            // Send command to background script for processing
-            const result = await chrome.runtime.sendMessage({
-                action: 'executeCommand',
-                command: command,
-                tabId: await this.getCurrentTabId()
-            });
+            // First try to execute locally
+            let result = await this.executeCommand(command);
             
-            if (result.success) {
+            // If local execution fails, try background script
+            if (!result.success) {
+                console.log('Local execution failed, trying background script...');
+                result = await chrome.runtime.sendMessage({
+                    action: 'executeCommand',
+                    command: command,
+                    tabId: await this.getCurrentTabId()
+                });
+            }
+            
+            if (result && result.success) {
                 this.speak(result.message || "Command executed successfully!");
+                console.log('Command executed successfully:', result);
             } else {
-                this.speak("Sorry, I couldn't execute that command. " + (result.error || ""));
+                const errorMsg = "Sorry, I couldn't execute that command. " + (result?.error || "Please try rephrasing.");
+                this.speak(errorMsg);
+                console.error('Command execution failed:', result);
             }
         } catch (error) {
             console.error('Command processing error:', error);
-            this.speak("Sorry, there was an error processing your command.");
+            this.speak("Sorry, there was an error processing your command. Please try again.");
         }
         
         this.updateAvatar('idle');

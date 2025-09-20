@@ -141,17 +141,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function startListening() {
-        if (!('webkitSpeechRecognition' in window)) {
+        console.log('Starting voice recognition from popup...');
+        
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             updateStatusIndicator('Speech not supported');
             return;
         }
         
-        const recognition = new webkitSpeechRecognition();
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
+        recognition.maxAlternatives = 1;
         
         recognition.onstart = function() {
+            console.log('Voice recognition started from popup');
             isListening = true;
             voiceBtn.textContent = '🛑 Stop Listening';
             voiceBtn.style.background = '#f44336';
@@ -159,21 +165,43 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         recognition.onresult = function(event) {
+            console.log('Voice recognition result:', event);
             const transcript = event.results[0][0].transcript;
+            console.log('Transcript received:', transcript);
             executeCommand(transcript);
+            stopListening();
         };
         
         recognition.onerror = function(event) {
             console.error('Speech recognition error:', event.error);
             stopListening();
-            updateStatusIndicator('Voice Error');
+            
+            switch(event.error) {
+                case 'not-allowed':
+                    updateStatusIndicator('Microphone access denied');
+                    break;
+                case 'no-speech':
+                    updateStatusIndicator('No speech detected');
+                    break;
+                case 'network':
+                    updateStatusIndicator('Network error');
+                    break;
+                default:
+                    updateStatusIndicator('Voice Error: ' + event.error);
+            }
         };
         
         recognition.onend = function() {
+            console.log('Voice recognition ended');
             stopListening();
         };
         
-        recognition.start();
+        try {
+            recognition.start();
+        } catch (error) {
+            console.error('Failed to start recognition:', error);
+            updateStatusIndicator('Failed to start');
+        }
     }
     
     function stopListening() {

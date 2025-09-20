@@ -87,6 +87,11 @@ class GoofyBackgroundService {
                     sendResponse({success: true});
                     break;
 
+                case 'getCurrentTab':
+                    const currentTab = await this.getCurrentActiveTab();
+                    sendResponse({tabId: currentTab?.id});
+                    break;
+
                 default:
                     sendResponse({error: 'Unknown action'});
             }
@@ -237,6 +242,16 @@ class GoofyBackgroundService {
             };
         } catch (error) {
             return {error: error.message};
+        }
+    }
+
+    async getCurrentActiveTab() {
+        try {
+            const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+            return tabs[0] || null;
+        } catch (error) {
+            console.error('Failed to get current tab:', error);
+            return null;
         }
     }
 

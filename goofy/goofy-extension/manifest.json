@@ -10,7 +10,8 @@
     "storage",
     "scripting",
     "webNavigation",
-    "contextMenus"
+    "contextMenus",
+    "background"
   ],
   
   "host_permissions": [
