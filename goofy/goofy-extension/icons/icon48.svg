@@ -1,0 +1,7 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="24" cy="24" r="22" fill="#4CAF50"/>
+  <circle cx="18" cy="18" r="3" fill="white"/>
+  <circle cx="30" cy="18" r="3" fill="white"/>
+  <ellipse cx="24" cy="30" rx="8" ry="4" fill="white"/>
+  <text x="24" y="14" font-family="Arial" font-size="6" fill="#4CAF50" text-anchor="middle" font-weight="bold">GO</text>
+</svg>
