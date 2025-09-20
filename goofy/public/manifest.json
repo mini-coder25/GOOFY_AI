@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Goofy AI Assistant",
+  "version": "1.0.0",
+  "description": "Your playful AI voice browser assistant that controls your browser with natural language commands!",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Goofy AI Assistant",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icon*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "author": "GDG Hackathon Team",
+  "homepage_url": "https://github.com/your-repo/goofy-ai-assistant"
+}
