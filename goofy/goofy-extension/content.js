@@ -4,12 +4,12 @@ class GoofyContentScript {
         this.isActive = false;
         this.avatar = null;
         this.overlay = null;
-        this.speechRecognition = null;
+        this.speechEngine = null;
         this.speechSynthesis = window.speechSynthesis;
         this.isListening = false;
         
         this.initializeListeners();
-        this.setupSpeechRecognition();
+        this.setupSpeechEngine();
     }
 
     initializeListeners() {
@@ -76,84 +76,91 @@ class GoofyContentScript {
         }
     }
 
-    setupSpeechRecognition() {
-        console.log('Setting up speech recognition...');
+    setupSpeechEngine() {
+        console.log('Setting up enhanced speech engine...');
         
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            this.speechRecognition = new SpeechRecognition();
+        if (window.GoofySpeechEngine) {
+            this.speechEngine = new window.GoofySpeechEngine();
             
-            // Configure for offline/local recognition
-            this.speechRecognition.continuous = false;
-            this.speechRecognition.interimResults = false;
-            this.speechRecognition.lang = 'en-US';
-            this.speechRecognition.maxAlternatives = 1;
+            // Listen to speech events
+            this.speechEngine.addListener((event, data) => {
+                this.handleSpeechEvent(event, data);
+            });
             
-            // Try to use local recognition if available
-            if ('webkitSpeechGrammarList' in window) {
-                const speechRecognitionList = new webkitSpeechGrammarList();
-                const grammar = '#JSGF V1.0; grammar commands; public <command> = scroll down | scroll up | scroll top | scroll bottom | click | search | new tab | close tab ;';
-                speechRecognitionList.addFromString(grammar, 1);
-                this.speechRecognition.grammars = speechRecognitionList;
-            }
-            
-            this.speechRecognition.onstart = () => {
-                console.log('Speech recognition started');
+            console.log('Speech engine initialized successfully');
+            console.log('Browser support:', this.speechEngine.getSupportInfo());
+        } else {
+            console.error('GoofySpeechEngine not available');
+            // Fallback to basic setup
+            this.setupBasicSpeechRecognition();
+        }
+    }
+    
+    handleSpeechEvent(event, data) {
+        console.log('Speech event:', event, data);
+        
+        switch (event) {
+            case 'start':
                 this.isListening = true;
                 this.updateAvatar('listening');
-            };
-            
-            this.speechRecognition.onresult = (event) => {
-                console.log('Speech recognition result:', event);
-                this.onSpeechResult(event);
-            };
-            
-            this.speechRecognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
+                this.updateListenButton('🛑 Stop');
+                break;
+                
+            case 'result':
+                console.log('Voice command received:', data.transcript);
+                this.processVoiceCommand(data.transcript);
+                break;
+                
+            case 'error':
+                this.handleSpeechError(data);
+                break;
+                
+            case 'end':
                 this.isListening = false;
                 this.updateAvatar('idle');
-                
-                // Handle specific errors
-                switch(event.error) {
-                    case 'not-allowed':
-                        this.speak('Please allow microphone access to use voice commands.');
-                        break;
-                    case 'no-speech':
-                        this.speak('No speech detected. Please try speaking more clearly.');
-                        break;
-                    case 'network':
-                        // Fallback for network errors - try again or use manual commands
-                        console.log('Network error - speech recognition may not be available online');
-                        this.speak('Network error detected. You can use the quick command buttons instead.');
-                        break;
-                    case 'audio-capture':
-                        this.speak('No microphone found. Please check your microphone connection.');
-                        break;
-                    case 'service-not-allowed':
-                        this.speak('Speech service not allowed. Please check browser settings.');
-                        break;
-                    default:
-                        this.speak('Speech recognition error. Please try the quick command buttons.');
-                }
-            };
-            
-            this.speechRecognition.onend = () => {
-                console.log('Speech recognition ended');
-                this.isListening = false;
-                this.updateAvatar('idle');
-                
-                // Update button text
-                const listenBtn = document.getElementById('goofy-listen-btn');
-                if (listenBtn) {
-                    listenBtn.textContent = '🎤 Listen';
-                }
-            };
-            
-            console.log('Speech recognition setup complete');
-        } else {
-            console.error('Speech recognition not supported in this browser');
-            this.speak('Speech recognition is not supported in this browser. Please use the quick command buttons.');
+                this.updateListenButton('🎤 Listen');
+                break;
         }
+    }
+    
+    handleSpeechError(errorData) {
+        console.log('Handling speech error:', errorData);
+        
+        switch (errorData.type) {
+            case 'permission':
+                this.speak('Please allow microphone access in your browser settings.');
+                this.showPermissionHelp();
+                break;
+                
+            case 'network':
+                if (errorData.showFallback) {
+                    this.speak('Voice recognition is temporarily unavailable. Please use the text input or quick buttons.');
+                    this.highlightFallbackOptions();
+                } else {
+                    this.speak('Network issue detected. Retrying...');
+                }
+                break;
+                
+            case 'no-speech':
+                this.speak('I didn\'t hear anything. Please try speaking more clearly.');
+                if (errorData.canRetry) {
+                    setTimeout(() => {
+                        this.startListening();
+                    }, 2000);
+                }
+                break;
+                
+            case 'microphone':
+                this.speak('No microphone detected. Please check your microphone connection.');
+                break;
+                
+            default:
+                this.speak(errorData.message || 'Speech recognition error. Please try again.');
+        }
+        
+        this.isListening = false;
+        this.updateAvatar('idle');
+        this.updateListenButton('🎤 Listen');
     }
 
     activate() {
@@ -406,12 +413,24 @@ class GoofyContentScript {
     startListening() {
         console.log('Attempting to start listening...');
         
-        if (!this.speechRecognition) {
-            console.error('Speech recognition not available');
-            this.speak("Sorry, speech recognition is not supported in this browser.");
-            return;
+        if (this.speechEngine) {
+            // Use enhanced speech engine
+            const success = this.speechEngine.startListening();
+            if (!success) {
+                this.speak("Sorry, couldn't start voice recognition. Please try the text input below.");
+                this.highlightFallbackOptions();
+            }
+        } else if (this.speechRecognition) {
+            // Fallback to basic speech recognition
+            this.startBasicListening();
+        } else {
+            console.error('No speech recognition available');
+            this.speak("Voice recognition is not available. Please use the text input or quick buttons.");
+            this.highlightFallbackOptions();
         }
-        
+    }
+    
+    startBasicListening() {
         if (this.isListening) {
             console.log('Already listening, stopping first...');
             this.stopListening();
@@ -419,23 +438,18 @@ class GoofyContentScript {
         }
         
         try {
-            console.log('Starting speech recognition...');
+            console.log('Starting basic speech recognition...');
             this.isListening = true;
             this.updateAvatar('listening');
             this.speechRecognition.start();
-            
-            // Update button text
-            const listenBtn = document.getElementById('goofy-listen-btn');
-            if (listenBtn) {
-                listenBtn.textContent = '🛑 Stop';
-            }
-            
-            console.log('Speech recognition started successfully');
+            this.updateListenButton('🛑 Stop');
+            console.log('Basic speech recognition started successfully');
         } catch (error) {
-            console.error('Failed to start speech recognition:', error);
+            console.error('Failed to start basic speech recognition:', error);
             this.isListening = false;
             this.updateAvatar('idle');
-            this.speak('Failed to start voice recognition. Please try again.');
+            this.speak('Failed to start voice recognition. Please try the text input.');
+            this.highlightFallbackOptions();
         }
     }
 
@@ -443,15 +457,13 @@ class GoofyContentScript {
         this.isListening = false;
         this.updateAvatar('idle');
         
-        if (this.speechRecognition) {
+        if (this.speechEngine) {
+            this.speechEngine.stopListening();
+        } else if (this.speechRecognition) {
             this.speechRecognition.stop();
         }
         
-        // Update button text
-        const listenBtn = document.getElementById('goofy-listen-btn');
-        if (listenBtn) {
-            listenBtn.textContent = '🎤 Listen';
-        }
+        this.updateListenButton('🎤 Listen');
     }
 
     onSpeechResult(event) {
@@ -532,6 +544,115 @@ class GoofyContentScript {
             };
             
             this.speechSynthesis.speak(utterance);
+        }
+    }
+    
+    updateListenButton(text) {
+        const listenBtn = document.getElementById('goofy-listen-btn');
+        if (listenBtn) {
+            listenBtn.textContent = text;
+        }
+    }
+    
+    highlightFallbackOptions() {
+        // Highlight the text input and quick buttons as alternatives
+        const overlay = this.overlay;
+        if (overlay) {
+            const fallbackNote = document.createElement('div');
+            fallbackNote.style.cssText = `
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 6px;
+                padding: 10px;
+                margin: 10px 0;
+                font-size: 12px;
+                color: #856404;
+            `;
+            fallbackNote.innerHTML = '💡 <strong>Tip:</strong> Use the text input or quick buttons below for reliable commands!';
+            
+            const controls = overlay.querySelector('.goofy-controls');
+            if (controls && !controls.querySelector('.fallback-note')) {
+                fallbackNote.className = 'fallback-note';
+                controls.appendChild(fallbackNote);
+                
+                // Remove after 5 seconds
+                setTimeout(() => {
+                    if (fallbackNote.parentNode) {
+                        fallbackNote.remove();
+                    }
+                }, 5000);
+            }
+        }
+    }
+    
+    showPermissionHelp() {
+        const helpText = `
+            To enable voice commands:
+            1. Click the microphone icon in your address bar
+            2. Select "Always allow" for this site
+            3. Refresh the page and try again
+        `;
+        
+        console.log('Permission Help:', helpText);
+        
+        // Show as notification or overlay
+        if (this.overlay) {
+            const helpDiv = document.createElement('div');
+            helpDiv.style.cssText = `
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                border-radius: 6px;
+                padding: 10px;
+                margin: 10px 0;
+                font-size: 11px;
+                color: #721c24;
+                white-space: pre-line;
+            `;
+            helpDiv.textContent = helpText;
+            
+            const controls = this.overlay.querySelector('.goofy-controls');
+            if (controls) {
+                controls.appendChild(helpDiv);
+                
+                setTimeout(() => {
+                    if (helpDiv.parentNode) {
+                        helpDiv.remove();
+                    }
+                }, 10000);
+            }
+        }
+    }
+    
+    setupBasicSpeechRecognition() {
+        console.log('Setting up basic speech recognition fallback...');
+        
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.speechRecognition = new SpeechRecognition();
+            
+            this.speechRecognition.continuous = false;
+            this.speechRecognition.interimResults = false;
+            this.speechRecognition.lang = 'en-US';
+            this.speechRecognition.maxAlternatives = 1;
+            
+            this.speechRecognition.onresult = (event) => {
+                this.onSpeechResult(event);
+            };
+            
+            this.speechRecognition.onerror = (event) => {
+                console.error('Basic speech recognition error:', event.error);
+                this.handleSpeechError({
+                    type: event.error === 'network' ? 'network' : 'generic',
+                    message: `Speech error: ${event.error}`,
+                    showFallback: event.error === 'network'
+                });
+            };
+            
+            this.speechRecognition.onend = () => {
+                this.isListening = false;
+                this.updateAvatar('idle');
+                this.updateListenButton('🎤 Listen');
+            };
         }
     }
 
