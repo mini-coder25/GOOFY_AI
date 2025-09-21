@@ -1,7 +1,18 @@
 // Enhanced Goofy Content Script with Better Architecture
-class GoofyContentScript extends GoofyEventEmitter {
+class GoofyContentScript {
     constructor() {
-        super();
+        // Check if required dependencies are loaded
+        if (typeof GoofyUtils === 'undefined') {
+            console.warn('GoofyUtils not loaded, creating fallback');
+            window.GoofyUtils = this.createFallbackUtils();
+        }
+        
+        if (typeof GoofyCommandProcessor === 'undefined') {
+            console.warn('GoofyCommandProcessor not loaded, creating basic processor');
+            this.commandProcessor = this.createBasicCommandProcessor();
+        } else {
+            this.commandProcessor = new GoofyCommandProcessor();
+        }
         
         // Core state
         this.isActive = false;
@@ -17,12 +28,8 @@ class GoofyContentScript extends GoofyEventEmitter {
         this.speechEngine = null;
         this.speechSynthesis = window.speechSynthesis;
         
-        // Throttled methods for performance
-        this.throttledScroll = GoofyUtils.throttle(this.executeScrollCommand.bind(this), 100);
-        this.debouncedSpeak = GoofyUtils.debounce(this.speak.bind(this), 500);
-        
-        // Command processors
-        this.commandProcessor = new GoofyCommandProcessor();
+        // Event listeners for cleanup
+        this.eventListeners = new Map();
         
         this.initialize();
     }
@@ -31,12 +38,71 @@ class GoofyContentScript extends GoofyEventEmitter {
         try {
             this.initializeListeners();
             await this.setupSpeechEngine();
-            this.emit('initialized');
             console.log('✅ Goofy Content Script initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize Goofy Content Script:', error);
-            this.emit('error', { type: 'initialization', error });
         }
+    }
+    
+    createFallbackUtils() {
+        return {
+            throttle: (func, limit) => {
+                let inThrottle;
+                return function(...args) {
+                    if (!inThrottle) {
+                        func.apply(this, args);
+                        inThrottle = true;
+                        setTimeout(() => inThrottle = false, limit);
+                    }
+                };
+            },
+            debounce: (func, wait) => {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            },
+            findBestElementMatch: (query) => {
+                const selectors = ['button', 'a', '[role="button"]', 'input[type="submit"]'];
+                for (const selector of selectors) {
+                    const elements = document.querySelectorAll(selector);
+                    for (const element of elements) {
+                        if (element.textContent.toLowerCase().includes(query.toLowerCase())) {
+                            return element;
+                        }
+                    }
+                }
+                return null;
+            }
+        };
+    }
+    
+    createBasicCommandProcessor() {
+        return {
+            async processCommand(command) {
+                const cmd = command.toLowerCase().trim();
+                
+                if (cmd.includes('scroll down')) {
+                    window.scrollBy(0, 300);
+                    return { success: true, message: 'Scrolled down' };
+                }
+                if (cmd.includes('scroll up')) {
+                    window.scrollBy(0, -300);
+                    return { success: true, message: 'Scrolled up' };
+                }
+                if (cmd.includes('new tab')) {
+                    window.open('', '_blank');
+                    return { success: true, message: 'Opened new tab' };
+                }
+                if (cmd.includes('refresh') || cmd.includes('reload')) {
+                    window.location.reload();
+                    return { success: true, message: 'Page refreshed' };
+                }
+                
+                return { success: false, error: 'Command not recognized' };
+            }
+        };
     }
 
     initializeListeners() {
@@ -104,45 +170,34 @@ class GoofyContentScript extends GoofyEventEmitter {
     }
 
     setupSpeechEngine() {
-        console.log('Setting up enhanced speech engine...');
+        console.log('Setting up speech engine...');
         
-        // Wait for speechEngine to load if not immediately available
-        const initializeSpeech = () => {
-            if (window.GoofySpeechEngine) {
-                console.log('GoofySpeechEngine found, initializing...');
+        // Check if enhanced speech engine is available
+        if (window.GoofySpeechEngine) {
+            try {
+                console.log('Using enhanced speech engine');
                 this.speechEngine = new window.GoofySpeechEngine();
                 
-                // Listen to speech events
-                this.speechEngine.addListener((event, data) => {
-                    this.handleSpeechEvent(event, data);
-                });
+                // Listen to speech events if available
+                if (this.speechEngine.on) {
+                    this.speechEngine.on('start', () => this.handleSpeechEvent('start', {}));
+                    this.speechEngine.on('result', (data) => this.handleSpeechEvent('result', data));
+                    this.speechEngine.on('error', (data) => this.handleSpeechEvent('error', data));
+                    this.speechEngine.on('end', () => this.handleSpeechEvent('end', {}));
+                } else if (this.speechEngine.addListener) {
+                    this.speechEngine.addListener((event, data) => {
+                        this.handleSpeechEvent(event, data);
+                    });
+                }
                 
-                console.log('Speech engine initialized successfully');
-                console.log('Browser support:', this.speechEngine.getSupportInfo());
-                
-                // Test speech availability immediately
-                this.testSpeechAvailability();
-            } else {
-                console.warn('GoofySpeechEngine not available, using fallback');
-                // Fallback to basic setup
+                console.log('Enhanced speech engine initialized');
+            } catch (error) {
+                console.error('Failed to initialize enhanced speech engine:', error);
                 this.setupBasicSpeechRecognition();
             }
-        };
-        
-        // Try immediate initialization
-        if (window.GoofySpeechEngine) {
-            initializeSpeech();
         } else {
-            // Wait a bit for the script to load
-            console.log('Waiting for GoofySpeechEngine to load...');
-            setTimeout(() => {
-                if (window.GoofySpeechEngine) {
-                    initializeSpeech();
-                } else {
-                    console.error('GoofySpeechEngine failed to load, using fallback');
-                    this.setupBasicSpeechRecognition();
-                }
-            }, 1000);
+            console.log('Enhanced speech engine not available, using basic recognition');
+            this.setupBasicSpeechRecognition();
         }
     }
     
@@ -269,16 +324,12 @@ class GoofyContentScript extends GoofyEventEmitter {
     }
 
     createOverlay() {
+        if (this.overlay) {
+            this.overlay.remove();
+        }
+        
         this.overlay = document.createElement('div');
         this.overlay.id = 'goofy-overlay';
-        this.overlay.innerHTML = `
-            <div class="goofy-controls">
-                <button id="goofy-listen-btn" class="goofy-btn">🎤 Listen</button>
-                <button id="goofy-close-btn" class="goofy-btn">✕ Close</button>
-            </div>
-        `;
-        
-        // Add styles
         this.overlay.style.cssText = `
             position: fixed;
             top: 20px;
@@ -290,17 +341,77 @@ class GoofyContentScript extends GoofyEventEmitter {
             color: white;
             font-family: Arial, sans-serif;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 300px;
+        `;
+        
+        this.overlay.innerHTML = `
+            <div class="goofy-controls">
+                <div style="margin-bottom: 12px; font-weight: bold; text-align: center;">
+                    🎭 Goofy Assistant
+                </div>
+                <button id="goofy-listen-btn" class="goofy-btn" style="width: 100%; margin-bottom: 10px; padding: 10px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer;">🎤 Listen</button>
+                <input type="text" id="goofy-text-command" placeholder="Type command..." style="width: calc(100% - 60px); padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px;">
+                <button id="goofy-execute-text" style="width: 50px; padding: 8px; border: none; border-radius: 4px; background: #2196F3; color: white; cursor: pointer;">Go</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px;">
+                    <button class="goofy-quick" data-cmd="scroll down" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; background: white; color: black; font-size: 11px; cursor: pointer;">↓ Down</button>
+                    <button class="goofy-quick" data-cmd="scroll up" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; background: white; color: black; font-size: 11px; cursor: pointer;">↑ Up</button>
+                    <button class="goofy-quick" data-cmd="new tab" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; background: white; color: black; font-size: 11px; cursor: pointer;">+ Tab</button>
+                    <button class="goofy-quick" data-cmd="refresh page" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; background: white; color: black; font-size: 11px; cursor: pointer;">🔄 Refresh</button>
+                </div>
+                <button id="goofy-close-btn" class="goofy-btn" style="width: 100%; margin-top: 10px; padding: 8px; border: none; border-radius: 6px; background: #f44336; color: white; cursor: pointer;">✕ Close</button>
+            </div>
         `;
         
         document.body.appendChild(this.overlay);
         
         // Add event listeners
-        document.getElementById('goofy-listen-btn').addEventListener('click', () => {
-            this.toggleListening();
-        });
+        this.addOverlayEventListeners();
+    }
+    
+    addOverlayEventListeners() {
+        const listenBtn = document.getElementById('goofy-listen-btn');
+        const closeBtn = document.getElementById('goofy-close-btn');
+        const textInput = document.getElementById('goofy-text-command');
+        const executeBtn = document.getElementById('goofy-execute-text');
+        const quickButtons = document.querySelectorAll('.goofy-quick');
         
-        document.getElementById('goofy-close-btn').addEventListener('click', () => {
-            this.deactivate();
+        if (listenBtn) {
+            listenBtn.addEventListener('click', () => {
+                this.toggleListening();
+            });
+        }
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.deactivate();
+            });
+        }
+        
+        const executeCommand = () => {
+            const command = textInput?.value?.trim();
+            if (command) {
+                this.processVoiceCommand(command);
+                textInput.value = '';
+            }
+        };
+        
+        if (executeBtn) {
+            executeBtn.addEventListener('click', executeCommand);
+        }
+        
+        if (textInput) {
+            textInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') executeCommand();
+            });
+        }
+        
+        quickButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const command = btn.dataset.cmd;
+                if (command) {
+                    this.processVoiceCommand(command);
+                }
+            });
         });
     }
 
@@ -346,7 +457,7 @@ class GoofyContentScript extends GoofyEventEmitter {
         
         this.injectAvatarStyles();
     }
-
+    
     injectAvatarStyles() {
         const styles = `
             #goofy-avatar .avatar-face {
@@ -439,202 +550,30 @@ class GoofyContentScript extends GoofyEventEmitter {
         document.head.appendChild(styleSheet);
     }
 
-    removeOverlay() {
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
-    }
-
-    removeAvatar() {
-        if (this.avatar) {
-            this.avatar.remove();
-            this.avatar = null;
-        }
-    }
-
     updateAvatar(state) {
         if (!this.avatar) return;
         
         const statusElement = this.avatar.querySelector('.avatar-status');
+        if (!statusElement) return;
+        
+        // Remove existing state classes
+        this.avatar.className = this.avatar.className.replace(/\b(listening|speaking|thinking)\b/g, '');
         
         switch (state) {
             case 'listening':
-                this.avatar.className = 'listening';
+                this.avatar.classList.add('listening');
                 statusElement.textContent = 'Listening...';
                 break;
             case 'speaking':
-                this.avatar.className = 'speaking';
+                this.avatar.classList.add('speaking');
                 statusElement.textContent = 'Speaking...';
                 break;
             case 'thinking':
-                this.avatar.className = 'thinking';
+                this.avatar.classList.add('thinking');
                 statusElement.textContent = 'Processing...';
                 break;
             default:
-                this.avatar.className = '';
                 statusElement.textContent = 'Ready';
-        }
-    }
-
-    toggleListening() {
-        if (this.isListening) {
-            this.stopListening();
-        } else {
-            this.startListening();
-        }
-    }
-
-    startListening() {
-        console.log('Attempting to start listening...');
-        console.log('Speech engine available:', !!this.speechEngine);
-        console.log('Basic speech recognition available:', !!this.speechRecognition);
-        
-        // Check basic browser support first
-        const hasWebSpeech = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-        if (!hasWebSpeech) {
-            console.error('Browser does not support speech recognition');
-            this.speak("Sorry, your browser doesn't support voice recognition. Please use the text input or quick buttons.");
-            this.highlightFallbackOptions();
-            return;
-        }
-        
-        if (this.speechEngine) {
-            console.log('Using enhanced speech engine...');
-            // Use enhanced speech engine
-            const success = this.speechEngine.startListening();
-            if (!success) {
-                console.warn('Enhanced speech engine failed, trying fallback...');
-                this.speak("Voice recognition is temporarily unavailable. Please use the text input below.");
-                this.highlightFallbackOptions();
-            }
-        } else if (this.speechRecognition) {
-            console.log('Using basic speech recognition...');
-            // Fallback to basic speech recognition
-            this.startBasicListening();
-        } else {
-            console.error('No speech recognition available');
-            this.speak("Voice recognition is currently unavailable. Please use the text input or quick buttons below.");
-            this.highlightFallbackOptions();
-            // Try to set up basic recognition as last resort
-            this.setupBasicSpeechRecognition();
-        }
-    }
-    
-    startBasicListening() {
-        if (this.isListening) {
-            console.log('Already listening, stopping first...');
-            this.stopListening();
-            return;
-        }
-        
-        try {
-            console.log('Starting basic speech recognition...');
-            this.isListening = true;
-            this.updateAvatar('listening');
-            this.speechRecognition.start();
-            this.updateListenButton('🛑 Stop');
-            console.log('Basic speech recognition started successfully');
-        } catch (error) {
-            console.error('Failed to start basic speech recognition:', error);
-            this.isListening = false;
-            this.updateAvatar('idle');
-            this.speak('Failed to start voice recognition. Please try the text input.');
-            this.highlightFallbackOptions();
-        }
-    }
-
-    stopListening() {
-        this.isListening = false;
-        this.updateAvatar('idle');
-        
-        if (this.speechEngine) {
-            this.speechEngine.stopListening();
-        } else if (this.speechRecognition) {
-            this.speechRecognition.stop();
-        }
-        
-        this.updateListenButton('🎤 Listen');
-    }
-
-    onSpeechResult(event) {
-        console.log('Speech result event:', event);
-        let finalTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i];
-            console.log('Result', i, ':', result[0].transcript, 'Final:', result.isFinal);
-            
-            if (result.isFinal) {
-                finalTranscript += result[0].transcript;
-            }
-        }
-        
-        if (finalTranscript.trim()) {
-            console.log('Final transcript:', finalTranscript.trim());
-            this.processVoiceCommand(finalTranscript.trim());
-        } else {
-            console.log('No final transcript detected');
-        }
-    }
-
-    async processVoiceCommand(command) {
-        console.log('Processing voice command:', command);
-        this.updateAvatar('thinking');
-        this.stopListening();
-        
-        try {
-            // First try to execute locally
-            let result = await this.executeCommand(command);
-            
-            // If local execution fails, try background script
-            if (!result.success) {
-                console.log('Local execution failed, trying background script...');
-                result = await chrome.runtime.sendMessage({
-                    action: 'executeCommand',
-                    command: command,
-                    tabId: await this.getCurrentTabId()
-                });
-            }
-            
-            if (result && result.success) {
-                this.speak(result.message || "Command executed successfully!");
-                console.log('Command executed successfully:', result);
-            } else {
-                const errorMsg = "Sorry, I couldn't execute that command. " + (result?.error || "Please try rephrasing.");
-                this.speak(errorMsg);
-                console.error('Command execution failed:', result);
-            }
-        } catch (error) {
-            console.error('Command processing error:', error);
-            this.speak("Sorry, there was an error processing your command. Please try again.");
-        }
-        
-        this.updateAvatar('idle');
-    }
-
-    async getCurrentTabId() {
-        return new Promise((resolve) => {
-            chrome.runtime.sendMessage({action: 'getCurrentTab'}, (response) => {
-                resolve(response.tabId);
-            });
-        });
-    }
-
-    speak(text) {
-        if (this.speechSynthesis) {
-            this.updateAvatar('speaking');
-            
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.2;
-            utterance.volume = 0.8;
-            
-            utterance.onend = () => {
-                this.updateAvatar('idle');
-            };
-            
-            this.speechSynthesis.speak(utterance);
         }
     }
     
@@ -645,379 +584,266 @@ class GoofyContentScript extends GoofyEventEmitter {
         }
     }
     
-    highlightFallbackOptions() {
-        // Highlight the text input and quick buttons as alternatives
-        const overlay = this.overlay;
-        if (overlay) {
-            const fallbackNote = document.createElement('div');
-            fallbackNote.style.cssText = `
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                border-radius: 6px;
-                padding: 10px;
-                margin: 10px 0;
-                font-size: 12px;
-                color: #856404;
-            `;
-            fallbackNote.innerHTML = '💡 <strong>Tip:</strong> Use the text input or quick buttons below for reliable commands!';
-            
-            const controls = overlay.querySelector('.goofy-controls');
-            if (controls && !controls.querySelector('.fallback-note')) {
-                fallbackNote.className = 'fallback-note';
-                controls.appendChild(fallbackNote);
+    speak(text) {
+        if (this.speechSynthesis && text) {
+            try {
+                this.updateAvatar('speaking');
                 
-                // Remove after 5 seconds
-                setTimeout(() => {
-                    if (fallbackNote.parentNode) {
-                        fallbackNote.remove();
-                    }
-                }, 5000);
-            }
-        }
-    }
-    
-    showPermissionHelp() {
-        const helpText = `
-            To enable voice commands:
-            1. Click the microphone icon in your address bar
-            2. Select "Always allow" for this site
-            3. Refresh the page and try again
-        `;
-        
-        console.log('Permission Help:', helpText);
-        
-        // Show as notification or overlay
-        if (this.overlay) {
-            const helpDiv = document.createElement('div');
-            helpDiv.style.cssText = `
-                background: #f8d7da;
-                border: 1px solid #f5c6cb;
-                border-radius: 6px;
-                padding: 10px;
-                margin: 10px 0;
-                font-size: 11px;
-                color: #721c24;
-                white-space: pre-line;
-            `;
-            helpDiv.textContent = helpText;
-            
-            const controls = this.overlay.querySelector('.goofy-controls');
-            if (controls) {
-                controls.appendChild(helpDiv);
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.2;
+                utterance.volume = 0.8;
                 
-                setTimeout(() => {
-                    if (helpDiv.parentNode) {
-                        helpDiv.remove();
-                    }
-                }, 10000);
+                utterance.onend = () => {
+                    this.updateAvatar('idle');
+                };
+                
+                utterance.onerror = (error) => {
+                    console.error('Speech synthesis error:', error);
+                    this.updateAvatar('idle');
+                };
+                
+                this.speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error('Failed to speak:', error);
+                this.updateAvatar('idle');
             }
-        }
-    }
-    
-    showTextInput() {
-        // Create text input for manual commands when voice fails
-        let textInputContainer = document.getElementById('goofy-text-input-container');
-        if (!textInputContainer) {
-            textInputContainer = document.createElement('div');
-            textInputContainer.id = 'goofy-text-input-container';
-            textInputContainer.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                left: 20px;
-                background: white;
-                border: 2px solid #4CAF50;
-                border-radius: 10px;
-                padding: 15px;
-                z-index: 10001;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                font-family: Arial, sans-serif;
-                max-width: 350px;
-            `;
-            
-            textInputContainer.innerHTML = `
-                <div style="margin-bottom: 10px; font-weight: bold; color: #333;">
-                    🎤➡️📝 Voice Commands (Type Here):
-                </div>
-                <div style="margin-bottom: 10px; font-size: 12px; color: #666;">
-                    Network error detected - Use text instead
-                </div>
-                <input type="text" id="goofy-manual-command" placeholder="Type: scroll down, new tab, etc." 
-                       style="width: 250px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px;">
-                <div>
-                    <button id="goofy-execute-command" style="padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;">Execute</button>
-                    <button id="goofy-close-text-input" style="padding: 8px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
-                </div>
-                <div style="margin-top: 8px; font-size: 11px; color: #666;">
-                    Try: scroll down, scroll up, new tab, close tab
-                </div>
-            `;
-            
-            document.body.appendChild(textInputContainer);
-            
-            // Add event listeners
-            const textInput = document.getElementById('goofy-manual-command');
-            const executeBtn = document.getElementById('goofy-execute-command');
-            const closeBtn = document.getElementById('goofy-close-text-input');
-            
-            const executeCommand = () => {
-                const command = textInput.value.trim();
-                if (command) {
-                    console.log('Executing manual command:', command);
-                    this.processVoiceCommand(command);
-                    textInput.value = '';
-                }
-            };
-            
-            executeBtn.addEventListener('click', executeCommand);
-            textInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') executeCommand();
-            });
-            
-            closeBtn.addEventListener('click', () => {
-                textInputContainer.remove();
-            });
-            
-            // Focus the input
-            textInput.focus();
         }
     }
     
     setupBasicSpeechRecognition() {
-        console.log('Setting up basic speech recognition fallback...');
+        console.log('Setting up basic speech recognition...');
         
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        try {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             
-            try {
-                this.speechRecognition = new SpeechRecognition();
-                
-                this.speechRecognition.continuous = false;
-                this.speechRecognition.interimResults = false;
-                this.speechRecognition.lang = 'en-US';
-                this.speechRecognition.maxAlternatives = 1;
-                
-                this.speechRecognition.onstart = () => {
-                    console.log('Basic speech recognition started');
-                    this.isListening = true;
-                    this.updateAvatar('listening');
-                    this.updateListenButton('🛑 Stop');
-                };
-                
-                this.speechRecognition.onresult = (event) => {
-                    console.log('Basic speech recognition result:', event);
-                    this.onSpeechResult(event);
-                };
-                
-                this.speechRecognition.onerror = (event) => {
-                    console.error('Basic speech recognition error:', event.error);
-                    this.isListening = false;
-                    this.updateAvatar('idle');
-                    this.updateListenButton('🎤 Listen');
-                    
-                    switch(event.error) {
-                        case 'not-allowed':
-                            this.speak('Please allow microphone access in your browser settings.');
-                            this.showPermissionHelp();
-                            break;
-                        case 'no-speech':
-                            this.speak('No speech detected. Please try speaking more clearly.');
-                            break;
-                        case 'network':
-                            this.speak('Network error. Voice recognition is temporarily unavailable. Please use the text input.');
-                            this.highlightFallbackOptions();
-                            // Force show text input for network errors
-                            setTimeout(() => {
-                                this.showTextInput();
-                            }, 1000);
-                            break;
-                        case 'audio-capture':
-                            this.speak('No microphone found. Please check your microphone connection.');
-                            break;
-                        default:
-                            this.speak('Voice recognition error. Please use the text input or quick buttons.');
-                            this.highlightFallbackOptions();
-                    }
-                };
-                
-                this.speechRecognition.onend = () => {
-                    console.log('Basic speech recognition ended');
-                    this.isListening = false;
-                    this.updateAvatar('idle');
-                    this.updateListenButton('🎤 Listen');
-                };
-                
-                console.log('Basic speech recognition setup complete');
-            } catch (error) {
-                console.error('Failed to set up basic speech recognition:', error);
-                this.speechRecognition = null;
-            }
-        } else {
-            console.error('Speech recognition not supported in this browser');
-        }
-    }
-
-    // Command execution methods
-    async executeCommand(command) {
-        const commandLower = command.toLowerCase();
-        
-        // Handle page-specific commands
-        if (commandLower.includes('scroll')) {
-            return this.handleScroll(command);
-        }
-        
-        if (commandLower.includes('click')) {
-            return this.handleClick(command);
-        }
-        
-        if (commandLower.includes('find') || commandLower.includes('search')) {
-            return this.handleSearch(command);
-        }
-        
-        if (commandLower.includes('fill') || commandLower.includes('type')) {
-            return this.handleInput(command);
-        }
-        
-        return {success: false, error: 'Command not recognized'};
-    }
-
-    async handleScroll(command) {
-        const commandLower = command.toLowerCase();
-        
-        try {
-            if (commandLower.includes('up')) {
-                window.scrollBy(0, -300);
-                return {success: true, message: 'Scrolled up'};
-            } else if (commandLower.includes('down')) {
-                window.scrollBy(0, 300);
-                return {success: true, message: 'Scrolled down'};
-            } else if (commandLower.includes('top')) {
-                window.scrollTo(0, 0);
-                return {success: true, message: 'Scrolled to top'};
-            } else if (commandLower.includes('bottom')) {
-                window.scrollTo(0, document.body.scrollHeight);
-                return {success: true, message: 'Scrolled to bottom'};
+            if (!SpeechRecognition) {
+                console.error('Speech recognition not supported in this browser');
+                this.speak('Voice recognition is not supported in this browser. Please use text input.');
+                return false;
             }
             
-            return {success: false, error: 'Unknown scroll direction'};
-        } catch (error) {
-            return {success: false, error: error.message};
-        }
-    }
-
-    async handleClick(command) {
-        // Extract what to click from the command
-        const clickPattern = /click\s+(?:on\s+)?(?:the\s+)?(.+)/i;
-        const match = command.match(clickPattern);
-        
-        if (!match) {
-            return {success: false, error: 'Could not understand what to click'};
-        }
-        
-        const target = match[1].toLowerCase();
-        
-        try {
-            // Find element by various selectors
-            let element = this.findElementByText(target) ||
-                         this.findElementByRole(target) ||
-                         this.findElementByAttribute(target);
+            this.speechRecognition = new SpeechRecognition();
+            this.speechRecognition.continuous = false;
+            this.speechRecognition.interimResults = false;
+            this.speechRecognition.lang = 'en-US';
             
-            if (element) {
-                element.click();
-                return {success: true, message: `Clicked on ${target}`};
-            } else {
-                return {success: false, error: `Could not find element: ${target}`};
-            }
-        } catch (error) {
-            return {success: false, error: error.message};
-        }
-    }
-
-    findElementByText(text) {
-        // Search for buttons, links, and clickable elements containing the text
-        const selectors = ['button', 'a', '[role="button"]', 'input[type="submit"]', 'input[type="button"]'];
-        
-        for (const selector of selectors) {
-            const elements = document.querySelectorAll(selector);
-            for (const element of elements) {
-                if (element.textContent.toLowerCase().includes(text)) {
-                    return element;
+            this.speechRecognition.onstart = () => {
+                console.log('Speech recognition started');
+                this.isListening = true;
+                this.updateAvatar('listening');
+                this.updateListenButton('🛑 Stop');
+            };
+            
+            this.speechRecognition.onresult = (event) => {
+                if (event.results.length > 0) {
+                    const transcript = event.results[0][0].transcript;
+                    console.log('Speech result:', transcript);
+                    this.processVoiceCommand(transcript);
                 }
+            };
+            
+            this.speechRecognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                
+                switch (event.error) {
+                    case 'network':
+                        this.speak('Network error. Please check your internet connection or use text input.');
+                        this.showTextInput();
+                        break;
+                    case 'not-allowed':
+                        this.speak('Microphone access denied. Please allow microphone access.');
+                        break;
+                    case 'no-speech':
+                        this.speak('No speech detected. Please try again.');
+                        break;
+                    default:
+                        this.speak('Speech recognition error. Please use text input.');
+                        this.showTextInput();
+                }
+                
+                this.isListening = false;
+                this.updateAvatar('idle');
+                this.updateListenButton('🎤 Listen');
+            };
+            
+            this.speechRecognition.onend = () => {
+                console.log('Speech recognition ended');
+                this.isListening = false;
+                this.updateAvatar('idle');
+                this.updateListenButton('🎤 Listen');
+            };
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to setup speech recognition:', error);
+            this.speak('Voice recognition setup failed. Please use text input.');
+            return false;
+        }
+    }
+    
+    async processVoiceCommand(command) {
+        if (!command || !command.trim()) {
+            this.speak('I didn\'t hear anything. Please try again.');
+            return;
+        }
+        
+        console.log('Processing voice command:', command);
+        this.updateAvatar('thinking');
+        
+        try {
+            const result = await this.commandProcessor.processCommand(command);
+            
+            if (result.success) {
+                this.speak(result.message || 'Command executed successfully');
+            } else {
+                this.speak(result.error || 'I couldn\'t understand that command. Please try again.');
             }
+        } catch (error) {
+            console.error('Error processing command:', error);
+            this.speak('Sorry, I encountered an error processing that command.');
+        } finally {
+            this.updateAvatar('idle');
         }
+    }
+    
+    injectAvatarStyles() {
+        if (document.getElementById('goofy-avatar-styles')) return;
         
-        return null;
-    }
-
-    findElementByRole(role) {
-        return document.querySelector(`[role="${role}"]`) || 
-               document.querySelector(role);
-    }
-
-    findElementByAttribute(text) {
-        // Search by common attributes
-        return document.querySelector(`[title*="${text}"]`) ||
-               document.querySelector(`[aria-label*="${text}"]`) ||
-               document.querySelector(`[alt*="${text}"]`);
-    }
-
-    async handleSearch(command) {
-        // Extract search query
-        const searchPattern = /(?:find|search)\s+(?:for\s+)?(.+)/i;
-        const match = command.match(searchPattern);
+        const styleSheet = document.createElement('style');
+        styleSheet.id = 'goofy-avatar-styles';
+        styleSheet.textContent = `
+            #goofy-avatar.listening {
+                animation: pulse 1s infinite;
+                background: linear-gradient(45deg, #2196F3, #1976D2) !important;
+            }
+            
+            #goofy-avatar.speaking .avatar-mouth {
+                animation: speak 0.5s infinite alternate;
+            }
+            
+            #goofy-avatar.thinking {
+                background: linear-gradient(45deg, #ff9800, #f57c00) !important;
+            }
+            
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); }
+            }
+            
+            @keyframes speak {
+                0% { height: 10px; }
+                100% { height: 15px; }
+            }
+        `;
         
-        if (!match) {
-            return {success: false, error: 'Could not understand search query'};
+        document.head.appendChild(styleSheet);
+    }
+    
+    removeOverlay() {
+        if (this.overlay) {
+            this.overlay.remove();
+            this.overlay = null;
         }
-        
-        const query = match[1];
-        
-        // Try to find search input
-        const searchInput = document.querySelector('input[type="search"]') ||
-                           document.querySelector('input[name*="search"]') ||
-                           document.querySelector('input[placeholder*="search"]') ||
-                           document.querySelector('#search') ||
-                           document.querySelector('.search-input');
-        
-        if (searchInput) {
-            searchInput.focus();
-            searchInput.value = query;
-            
-            // Trigger search (try Enter key or find search button)
-            searchInput.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
-            
-            return {success: true, message: `Searching for: ${query}`};
+    }
+    
+    removeAvatar() {
+        if (this.avatar) {
+            this.avatar.remove();
+            this.avatar = null;
+        }
+    }
+    
+    highlightFallbackOptions() {
+        console.log('Highlighting fallback options');
+        // This could show visual hints about alternatives
+    }
+    
+    showPermissionHelp() {
+        console.log('Showing permission help');
+        this.speak('Please allow microphone access in your browser settings.');
+    }
+    
+    showTextInput() {
+        // Show text input as fallback
+        const textInput = document.getElementById('goofy-text-command');
+        if (textInput) {
+            textInput.focus();
+            textInput.style.border = '2px solid #4CAF50';
+            setTimeout(() => {
+                textInput.style.border = '1px solid #ddd';
+            }, 2000);
+        }
+    }
+    
+    toggleListening() {
+        if (this.isListening) {
+            this.stopListening();
         } else {
-            return {success: false, error: 'Could not find search input on this page'};
+            this.startListening();
         }
     }
-
-    async handleInput(command) {
-        // Handle form filling
-        const inputPattern = /(?:fill|type)\s+(.+)\s+(?:in|into)\s+(.+)/i;
-        const match = command.match(inputPattern);
+    
+    startListening() {
+        console.log('Attempting to start listening...');
         
-        if (!match) {
-            return {success: false, error: 'Could not understand input command'};
-        }
-        
-        const value = match[1];
-        const fieldName = match[2].toLowerCase();
-        
-        // Find input field
-        const inputField = document.querySelector(`input[name*="${fieldName}"]`) ||
-                          document.querySelector(`input[placeholder*="${fieldName}"]`) ||
-                          document.querySelector(`textarea[name*="${fieldName}"]`) ||
-                          document.querySelector(`#${fieldName}`) ||
-                          document.querySelector(`.${fieldName}`);
-        
-        if (inputField) {
-            inputField.focus();
-            inputField.value = value;
-            inputField.dispatchEvent(new Event('input', {bubbles: true}));
-            
-            return {success: true, message: `Filled ${fieldName} with: ${value}`};
+        if (this.speechEngine && this.speechEngine.startListening) {
+            const success = this.speechEngine.startListening();
+            if (success) {
+                this.isListening = true;
+                this.updateAvatar('listening');
+                this.updateListenButton('🛑 Stop');
+            }
+        } else if (this.speechRecognition) {
+            try {
+                this.speechRecognition.start();
+                this.isListening = true;
+                this.updateAvatar('listening');
+                this.updateListenButton('🛑 Stop');
+            } catch (error) {
+                console.error('Failed to start basic speech recognition:', error);
+                this.speak('Voice recognition failed. Please use text input.');
+                this.showTextInput();
+            }
         } else {
-            return {success: false, error: `Could not find input field: ${fieldName}`};
+            console.log('No speech recognition available');
+            this.speak('Voice recognition not available. Please use text input.');
+            this.showTextInput();
+        }
+    }
+    
+    stopListening() {
+        this.isListening = false;
+        this.updateAvatar('idle');
+        this.updateListenButton('🎤 Listen');
+        
+        if (this.speechEngine && this.speechEngine.stopListening) {
+            this.speechEngine.stopListening();
+        } else if (this.speechRecognition) {
+            this.speechRecognition.stop();
+        }
+    }
+    
+    getCurrentTabId() {
+        return Promise.resolve(null); // Simplified for now
+    }
+
+    // Cleanup method
+    cleanup() {
+        if (this.isDestroyed) return;
+        
+        this.isDestroyed = true;
+        this.stopListening();
+        this.removeOverlay();
+        this.removeAvatar();
+        
+        // Remove event listeners
+        if (this.eventListeners) {
+            this.eventListeners.forEach((listener, element) => {
+                element.removeEventListener(listener.type, listener.handler);
+            });
+            this.eventListeners.clear();
         }
     }
 }

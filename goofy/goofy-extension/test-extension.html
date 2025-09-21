@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goofy Extension Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .search-section {
+            margin: 20px 0;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            margin: 10px 0;
+        }
+        
+        .status-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .instructions {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            border-left: 4px solid #3b82f6;
+            margin: 20px 0;
+        }
+        
+        .highlight {
+            background: yellow;
+            color: black;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎭 Goofy AI Voice Assistant Test Page</h1>
+        
+        <div class="instructions">
+            <h2>🚀 How to Test the Extension:</h2>
+            <ol>
+                <li>Make sure the Goofy extension is loaded in Chrome</li>
+                <li>Press <span class="highlight">Ctrl+Shift+G</span> to activate Goofy</li>
+                <li>Use voice commands or click the buttons below to test functionality</li>
+                <li>Check the browser console (F12) for detailed logs</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎤 Voice Commands to Try:</h2>
+            <ul>
+                <li>"scroll down" - Scroll the page down</li>
+                <li>"scroll up" - Scroll the page up</li>
+                <li>"new tab" - Open a new browser tab</li>
+                <li>"refresh page" - Reload the current page</li>
+                <li>"click search" - Click the search input below</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔘 Test Buttons</h2>
+            <div class="button-group">
+                <button onclick="scrollDown()">Scroll Down</button>
+                <button onclick="scrollUp()">Scroll Up</button>
+                <button onclick="openNewTab()">New Tab</button>
+                <button onclick="refreshPage()">Refresh Page</button>
+                <button onclick="testSearch()">Test Search</button>
+                <button onclick="showAlert()">Show Alert</button>
+            </div>
+        </div>
+        
+        <div class="search-section">
+            <h2>🔍 Search Test Area</h2>
+            <input type="search" placeholder="Test search input - try saying 'search for cats'" id="searchInput">
+            <button onclick="performSearch()">Search</button>
+        </div>
+        
+        <div class="status-display">
+            <h3>📊 Extension Status:</h3>
+            <div id="extensionStatus">Checking extension status...</div>
+        </div>
+        
+        <!-- Add lots of content to test scrolling -->
+        <div class="test-section">
+            <h2>📜 Scroll Test Content</h2>
+            <p>This section contains lots of content to test the scrolling functionality of the voice assistant.</p>
+            
+            <div style="height: 200px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                <h3>Scrollable Area 1</h3>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+                <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+                <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎨 Additional Test Elements</h2>
+            <p>More content to test various voice commands and interactions.</p>
+            <div style="height: 400px; background: linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border-radius: 15px; padding: 20px;">
+                <h3>Large Content Area</h3>
+                <p>This is a large content area to test scrolling behavior.</p>
+                <p>Voice commands should work to navigate through this content.</p>
+                <p>Try saying "scroll down" or "scroll up" to test navigation.</p>
+                <p>You can also test clicking commands by saying "click search" or similar.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test functions
+        function scrollDown() {
+            window.scrollBy(0, 300);
+            updateStatus('Scrolled down 300px');
+        }
+        
+        function scrollUp() {
+            window.scrollBy(0, -300);
+            updateStatus('Scrolled up 300px');
+        }
+        
+        function openNewTab() {
+            window.open('', '_blank');
+            updateStatus('Opened new tab');
+        }
+        
+        function refreshPage() {
+            location.reload();
+        }
+        
+        function testSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.focus();
+            searchInput.value = 'Test search via button';
+            updateStatus('Search input focused and filled');
+        }
+        
+        function performSearch() {
+            const query = document.getElementById('searchInput').value;
+            updateStatus(`Search performed for: "${query}"`);
+        }
+        
+        function showAlert() {
+            alert('Test alert - Extension can interact with page elements!');
+            updateStatus('Alert shown');
+        }
+        
+        function updateStatus(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const statusDiv = document.getElementById('extensionStatus');
+            statusDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+        
+        // Check if extension is loaded
+        function checkExtensionStatus() {
+            const hasGoofy = window.goofyContentScript !== undefined;
+            const hasGoofyConfig = window.GoofyConfig !== undefined;
+            const hasGoofyUtils = window.GoofyUtils !== undefined;
+            
+            let status = '<div style="color: #4CAF50;">✅ Extension Status:</div>';
+            status += `<div>• Content Script: ${hasGoofy ? '✅ Loaded' : '❌ Not Found'}</div>`;
+            status += `<div>• GoofyConfig: ${hasGoofyConfig ? '✅ Available' : '❌ Missing'}</div>`;
+            status += `<div>• GoofyUtils: ${hasGoofyUtils ? '✅ Available' : '❌ Missing'}</div>`;
+            
+            if (hasGoofy) {
+                status += '<div style="color: #10b981; margin-top: 10px;">🎉 Extension is ready! Press Ctrl+Shift+G to activate.</div>';
+            } else {
+                status += '<div style="color: #ef4444; margin-top: 10px;">⚠️ Extension not detected. Please check if it\'s loaded.</div>';
+            }
+            
+            document.getElementById('extensionStatus').innerHTML = status;
+        }
+        
+        // Check status when page loads
+        window.addEventListener('load', () => {
+            setTimeout(checkExtensionStatus, 1000);
+        });
+        
+        // Listen for extension events
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'GOOFY_STATUS') {
+                updateStatus(`Extension event: ${event.data.message}`);
+            }
+        });
+        
+        // Keyboard shortcuts info
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'G') {
+                updateStatus('Goofy activation shortcut detected!');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -31,6 +31,19 @@ class GoofyUIManager {
     }
     
     createEnhancedOverlay() {
+        const GoofyUtils = window.GoofyUtils || {
+            createStyledElement: (tag, styles = {}, content = '') => {
+                const element = document.createElement(tag);
+                Object.assign(element.style, styles);
+                if (content) element.innerHTML = content;
+                return element;
+            }
+        };
+        
+        const GoofyConfig = window.GoofyConfig || {
+            UI_SETTINGS: { Z_INDEX_BASE: 10000 }
+        };
+        
         const overlay = GoofyUtils.createStyledElement('div', {
             position: 'fixed',
             top: '20px',
@@ -144,6 +157,19 @@ class GoofyUIManager {
     }
     
     createEnhancedAvatar() {
+        const GoofyUtils = window.GoofyUtils || {
+            createStyledElement: (tag, styles = {}, content = '') => {
+                const element = document.createElement(tag);
+                Object.assign(element.style, styles);
+                if (content) element.innerHTML = content;
+                return element;
+            }
+        };
+        
+        const GoofyConfig = window.GoofyConfig || {
+            UI_SETTINGS: { Z_INDEX_BASE: 10000 }
+        };
+        
         const avatar = GoofyUtils.createStyledElement('div', {
             position: 'fixed',
             bottom: '20px',
@@ -286,6 +312,19 @@ class GoofyUIManager {
     }
     
     showToast(message, type = 'info', duration = 3000) {
+        const GoofyUtils = window.GoofyUtils || {
+            createStyledElement: (tag, styles = {}, content = '') => {
+                const element = document.createElement(tag);
+                Object.assign(element.style, styles);
+                if (content) element.innerHTML = content;
+                return element;
+            }
+        };
+        
+        const GoofyConfig = window.GoofyConfig || {
+            UI_SETTINGS: { Z_INDEX_BASE: 10000 }
+        };
+        
         const toast = GoofyUtils.createStyledElement('div', {
             position: 'fixed',
             top: '20px',

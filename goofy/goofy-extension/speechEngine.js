@@ -1,11 +1,30 @@
 // Enhanced Goofy Speech Recognition Engine
-class GoofySpeechEngine extends GoofyEventEmitter {
+class GoofySpeechEngine extends (window.GoofyEventEmitter || class { on() {} off() {} emit() {} }) {
     constructor(options = {}) {
-        super();
+        if (window.GoofyEventEmitter) {
+            super();
+        } else {
+            this.listeners = [];
+        }
         this.recognition = null;
         this.isListening = false;
         this.retryCount = 0;
-        this.maxRetries = options.maxRetries || GoofyConfig.SPEECH_SETTINGS.MAX_RETRIES;
+        
+        // Use configuration with fallbacks
+        const config = window.GoofyConfig || {
+            SPEECH_SETTINGS: {
+                MAX_RETRIES: 3,
+                CONTINUOUS: false,
+                INTERIM_RESULTS: false,
+                LANGUAGE: 'en-US',
+                MAX_ALTERNATIVES: 3
+            },
+            ERROR_MESSAGES: {
+                BROWSER_UNSUPPORTED: 'Speech recognition not supported in this browser'
+            }
+        };
+        
+        this.maxRetries = options.maxRetries || config.SPEECH_SETTINGS.MAX_RETRIES;
         this.currentTimeout = null;
         this.isDestroyed = false;
         
@@ -23,7 +42,7 @@ class GoofySpeechEngine extends GoofyEventEmitter {
             console.warn('Speech recognition not supported');
             this.emit('error', {
                 type: 'unsupported',
-                message: GoofyConfig.ERROR_MESSAGES.BROWSER_UNSUPPORTED
+                message: (window.GoofyConfig?.ERROR_MESSAGES?.BROWSER_UNSUPPORTED || 'Speech recognition not supported in this browser')
             });
             return false;
         }
@@ -32,8 +51,14 @@ class GoofySpeechEngine extends GoofyEventEmitter {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             this.recognition = new SpeechRecognition();
 
-            // Apply configuration
-            const settings = GoofyConfig.SPEECH_SETTINGS;
+            // Apply configuration with fallbacks
+            const settings = window.GoofyConfig?.SPEECH_SETTINGS || {
+                CONTINUOUS: false,
+                INTERIM_RESULTS: false,
+                LANGUAGE: 'en-US',
+                MAX_ALTERNATIVES: 3
+            };
+            
             this.recognition.continuous = settings.CONTINUOUS;
             this.recognition.interimResults = settings.INTERIM_RESULTS;
             this.recognition.lang = settings.LANGUAGE;
@@ -192,24 +217,38 @@ class GoofySpeechEngine extends GoofyEventEmitter {
     }
 
     addListener(callback) {
-        this.listeners.push(callback);
+        if (this.listeners) {
+            this.listeners.push(callback);
+        }
     }
 
     removeListener(callback) {
-        const index = this.listeners.indexOf(callback);
-        if (index > -1) {
-            this.listeners.splice(index, 1);
+        if (this.listeners) {
+            const index = this.listeners.indexOf(callback);
+            if (index > -1) {
+                this.listeners.splice(index, 1);
+            }
+        }
+    }
+
+    emit(event, data) {
+        if (window.GoofyEventEmitter && super.emit) {
+            super.emit(event, data);
+        } else {
+            this.notifyListeners(event, data);
         }
     }
 
     notifyListeners(event, data) {
-        this.listeners.forEach(callback => {
-            try {
-                callback(event, data);
-            } catch (error) {
-                console.error('Error in speech listener:', error);
-            }
-        });
+        if (this.listeners) {
+            this.listeners.forEach(callback => {
+                try {
+                    callback(event, data);
+                } catch (error) {
+                    console.error('Error in speech listener:', error);
+                }
+            });
+        }
     }
 
     isSpeechSupported() {

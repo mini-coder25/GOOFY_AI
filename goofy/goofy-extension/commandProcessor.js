@@ -107,14 +107,15 @@ class GoofyCommandProcessor {
     
     handleScrollCommand(command, match) {
         const direction = this.extractScrollDirection(command);
+        const scrollAmount = window.GoofyConfig?.UI_SETTINGS?.SCROLL_AMOUNT || 300;
         
         switch (direction) {
             case 'down':
-                window.scrollBy(0, GoofyConfig.UI_SETTINGS.SCROLL_AMOUNT);
+                window.scrollBy(0, scrollAmount);
                 return { success: true, message: 'Scrolled down' };
                 
             case 'up':
-                window.scrollBy(0, -GoofyConfig.UI_SETTINGS.SCROLL_AMOUNT);
+                window.scrollBy(0, -scrollAmount);
                 return { success: true, message: 'Scrolled up' };
                 
             case 'top':
@@ -165,6 +166,21 @@ class GoofyCommandProcessor {
     
     handleInteractionCommand(command, match) {
         const target = match[1];
+        const GoofyUtils = window.GoofyUtils || {
+            findBestElementMatch: (query) => {
+                const selectors = ['button', 'a', '[role="button"]', 'input[type="submit"]'];
+                for (const selector of selectors) {
+                    const elements = document.querySelectorAll(selector);
+                    for (const element of elements) {
+                        if (element.textContent.toLowerCase().includes(query.toLowerCase())) {
+                            return element;
+                        }
+                    }
+                }
+                return null;
+            }
+        };
+        
         const element = GoofyUtils.findBestElementMatch(target);
         
         if (element) {
@@ -233,9 +249,13 @@ class GoofyCommandProcessor {
     
     handleUnknownCommand(command) {
         const suggestions = this.generateSuggestions(command);
+        const errorMessages = window.GoofyConfig?.ERROR_MESSAGES || {
+            COMMAND_NOT_FOUND: 'Command not recognized - try "scroll down"'
+        };
+        
         return {
             success: false,
-            error: GoofyConfig.ERROR_MESSAGES.COMMAND_NOT_FOUND,
+            error: errorMessages.COMMAND_NOT_FOUND,
             suggestions: suggestions,
             originalCommand: command
         };
@@ -268,7 +288,24 @@ class GoofyCommandProcessor {
     }
     
     findSearchInput() {
-        for (const selector of GoofyConfig.SELECTORS.SEARCH_INPUTS) {
+        const searchSelectors = window.GoofyConfig?.SELECTORS?.SEARCH_INPUTS || [
+            'input[type="search"]',
+            'input[name*="search"]', 
+            'input[placeholder*="search" i]',
+            '#search',
+            '.search-input',
+            '[role="searchbox"]'
+        ];
+        
+        const GoofyUtils = window.GoofyUtils || {
+            isElementVisible: (element) => {
+                if (!element) return false;
+                const rect = element.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            }
+        };
+        
+        for (const selector of searchSelectors) {
             const element = document.querySelector(selector);
             if (element && GoofyUtils.isElementVisible(element)) {
                 return element;
