@@ -1,11 +1,19 @@
-// Enhanced Speech Recognition Engine for Goofy Extension
-class GoofySpeechEngine {
-    constructor() {
+// Enhanced Goofy Speech Recognition Engine
+class GoofySpeechEngine extends GoofyEventEmitter {
+    constructor(options = {}) {
+        super();
         this.recognition = null;
         this.isListening = false;
         this.retryCount = 0;
-        this.maxRetries = 3;
-        this.listeners = [];
+        this.maxRetries = options.maxRetries || GoofyConfig.SPEECH_SETTINGS.MAX_RETRIES;
+        this.currentTimeout = null;
+        this.isDestroyed = false;
+        
+        // Bind methods to preserve context
+        this.handleStart = this.handleStart.bind(this);
+        this.handleResult = this.handleResult.bind(this);
+        this.handleError = this.handleError.bind(this);
+        this.handleEnd = this.handleEnd.bind(this);
         
         this.setupSpeechRecognition();
     }
@@ -13,23 +21,34 @@ class GoofySpeechEngine {
     setupSpeechRecognition() {
         if (!this.isSpeechSupported()) {
             console.warn('Speech recognition not supported');
+            this.emit('error', {
+                type: 'unsupported',
+                message: GoofyConfig.ERROR_MESSAGES.BROWSER_UNSUPPORTED
+            });
             return false;
         }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        this.recognition = new SpeechRecognition();
+        try {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.recognition = new SpeechRecognition();
 
-        // Optimized settings for better reliability
-        this.recognition.continuous = false;
-        this.recognition.interimResults = false;
-        this.recognition.lang = 'en-US';
-        this.recognition.maxAlternatives = 3;
-        
-        // These settings help avoid network issues
-        this.recognition.serviceURI = null; // Use default
-        
-        this.setupEventHandlers();
-        return true;
+            // Apply configuration
+            const settings = GoofyConfig.SPEECH_SETTINGS;
+            this.recognition.continuous = settings.CONTINUOUS;
+            this.recognition.interimResults = settings.INTERIM_RESULTS;
+            this.recognition.lang = settings.LANGUAGE;
+            this.recognition.maxAlternatives = settings.MAX_ALTERNATIVES;
+            
+            this.setupEventHandlers();
+            return true;
+        } catch (error) {
+            console.error('Failed to setup speech recognition:', error);
+            this.emit('error', {
+                type: 'setup-failed',
+                message: 'Failed to initialize speech recognition'
+            });
+            return false;
+        }
     }
 
     setupEventHandlers() {

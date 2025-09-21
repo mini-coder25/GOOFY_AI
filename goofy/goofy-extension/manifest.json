@@ -25,7 +25,15 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["networkErrorFix.js", "speechDebug.js", "speechEngine.js", "content.js"],
+      "js": [
+        "goofyCore.js",
+        "commandProcessor.js",
+        "enhancedUI.js", 
+        "networkErrorFix.js",
+        "speechDebug.js", 
+        "speechEngine.js", 
+        "content.js"
+      ],
       "css": ["content.css"],
       "run_at": "document_end"
     }

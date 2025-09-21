@@ -1,15 +1,42 @@
-// Goofy Content Script - DOM Interaction and Page Control
-class GoofyContentScript {
+// Enhanced Goofy Content Script with Better Architecture
+class GoofyContentScript extends GoofyEventEmitter {
     constructor() {
+        super();
+        
+        // Core state
         this.isActive = false;
+        this.isListening = false;
+        this.isDestroyed = false;
+        
+        // UI elements
         this.avatar = null;
         this.overlay = null;
+        this.textInputContainer = null;
+        
+        // Speech components
         this.speechEngine = null;
         this.speechSynthesis = window.speechSynthesis;
-        this.isListening = false;
         
-        this.initializeListeners();
-        this.setupSpeechEngine();
+        // Throttled methods for performance
+        this.throttledScroll = GoofyUtils.throttle(this.executeScrollCommand.bind(this), 100);
+        this.debouncedSpeak = GoofyUtils.debounce(this.speak.bind(this), 500);
+        
+        // Command processors
+        this.commandProcessor = new GoofyCommandProcessor();
+        
+        this.initialize();
+    }
+    
+    async initialize() {
+        try {
+            this.initializeListeners();
+            await this.setupSpeechEngine();
+            this.emit('initialized');
+            console.log('✅ Goofy Content Script initialized successfully');
+        } catch (error) {
+            console.error('❌ Failed to initialize Goofy Content Script:', error);
+            this.emit('error', { type: 'initialization', error });
+        }
     }
 
     initializeListeners() {
